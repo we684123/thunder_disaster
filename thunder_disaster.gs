@@ -138,7 +138,7 @@ function doPost(e) {
 
         //折射 (∩^o^)⊃━☆ﾟ.*･｡
         for (var j in to_chat_id) {
-          forwardMessage(String(to_chat_id[j]), chat_id, false, message_id)
+          forwardMessage(String(to_chat_id[j]), chat_id, false, emr.message_id)
         }
       }
       lock.releaseLock();
