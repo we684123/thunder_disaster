@@ -64,7 +64,7 @@ function doPost(e) {
   var entities = em['entities']
   var caption_entities = em['caption_entities']
   var media_group_id = String(em.media_group_id)
-  Log(ee, username, sheet_key, Log_page); //log
+  //Log(ee, username, sheet_key, Log_page);
 
   //嘗試先取得keys
   var keys = Object.keys(ALL[chat_id]['transport'])
@@ -108,7 +108,7 @@ function doPost(e) {
 
         //依類別分別取出f_id並發送
         for (var j in to_chat_id) {
-          forwardMessage(String(to_chat_id[j]),chat_id,false,message_id)
+          forwardMessage(String(to_chat_id[j]), chat_id, false, message_id)
         }
 
       } else if (em.entities && em.reply_to_message) {
@@ -117,95 +117,32 @@ function doPost(e) {
         var hashtag_result = get_entities_by_type(em.text, em.entities, 'hashtag')
         var hashtag_result_A = get_entities_by_type(em.text, em.entities, 'hashtag', 'A')
         var url_result_A = get_entities_by_type(em.text, em.entities, 'url', 'A')
+        var emr = em.reply_to_message
         // 前置完畢
 
         //先搞定發送對象
-        if (em.reply_to_message) {
-          // "回覆" 兩種狀況 一種是回覆 "純媒體"，另一種是 "純網址"
-          // 或許未來新增 /delete ?
-          var emr = em.reply_to_message
-
-          // 回覆純媒體
-          if ((emr.photo || emr.animation || emr.video) && !(emr.text)) {
-            if (hashtag_result) { // 設 to_chat_id
-              for (var i in keys) {
-                if (hashtag_result.indexOf(keys[i]) != -1) {
-                  to_chat_id.push(ALL[chat_id]['transport'][keys[i]])
-                }
-              }
-            } else if (url_result && ALL[chat_id]['turn_on_preset']) {
-              to_chat_id.push(ALL[chat_id]['preset'])
-            }
-
-            if (to_chat_id == []) {
-              lock.releaseLock();
-              return 0;
-            }
-            if (!emr.caption) {
-              //如果 被回覆的照片 沒有註解
-              //那發到頻道的照片內容，就用回覆的內容
-              var caption2 = em.text
-            } else {
-              var caption2 = emr.caption
-            }
-
-            for (var j in to_chat_id) {
-              if (emr.photo) {
-                var p = emr.photo
-                var max = p.length - 1;
-                var f_id = p[max].file_id
-                sendPhoto(to_chat_id[j], f_id, false, caption2)
-              } else if (emr.animation) {
-                var f_id = emr.animation.file_id
-                sendAnimation(to_chat_id[j], f_id, false, caption2)
-              } else if (emr.video) {
-                var f_id = emr.video.file_id
-                sendVideo(to_chat_id[j], f_id, false, caption2)
-              }
-            }
-            lock.releaseLock();
-            return 0;
-          }
-
-          // 回覆純網址
-          var R_hashtag_result_A = get_entities_by_type(emr.text, emr.entities, 'hashtag', 'A')
-          var R_url_result_A = get_entities_by_type(emr.text, emr.entities, 'url', 'A')
-          if (A_have(R_url_result_A) && !(A_have(R_hashtag_result_A) || emr.photo || emr.animation || emr.video)) {
-            var to_chat_id = get_to_chat_id_by_hashtag_result(hashtag_result_A, chat_id, ALL)
-            if (to_chat_id == []) { //如果沒有就 hashtag_result_A 閃人
-              lock.releaseLock();
-              return 0;
-            }
-            try {
-              use_web_tansport(to_chat_id, R_url_result_A, chat_id, em)
-            } catch (e) {
-              console.log(e);
-            }
-            lock.releaseLock();
-            return 0;
-          }
-        } else { // 沒reply了啦
-          // 網址發糧 ( hashtag + url )
-          if (A_have(hashtag_result_A) && A_have(url_result_A)) { //兩個都有才有可能是
-            var to_chat_id = get_to_chat_id_by_hashtag_result(hashtag_result_A, chat_id, ALL)
-            if (to_chat_id == []) { //如果沒有就 hashtag_result_A 閃人
-              lock.releaseLock();
-              return 0;
-            }
-            try {
-              use_web_tansport(to_chat_id, url_result_A, chat_id, em)
-            } catch (e) {
-              console.log(e);
+        if (hashtag_result) { // 設 to_chat_id
+          for (var i in keys) {
+            if (hashtag_result.indexOf(keys[i]) != -1) {
+              to_chat_id.push(ALL[chat_id]['transport'][keys[i]])
             }
           }
+        } else if (url_result && ALL[chat_id]['turn_on_preset']) {
+          to_chat_id.push(ALL[chat_id]['preset'])
+        }
+
+        if (to_chat_id == []) { //沒對象就算了~
           lock.releaseLock();
           return 0;
         }
-        // 沒了(?
-      } else {
-        lock.releaseLock();
-        return 0;
+
+        //折射 (∩^o^)⊃━☆ﾟ.*･｡
+        for (var j in to_chat_id) {
+          forwardMessage(String(to_chat_id[j]), chat_id, false, message_id)
+        }
       }
+      lock.releaseLock();
+      return 0;
 
     } else if (chat_type == "private") {
       //自己跟bot對話(設定用途?)
@@ -242,83 +179,6 @@ function write_ALL(ALL, doc) {
   }
   return ALL
 }
-//=================================================================================
-function send_wait_media() {
-  var lock = LockService.getScriptLock();
-  var success = lock.tryLock(5 * 1000);
-  var base_json = base();
-  var doc2_key = base_json.doc2_key
-  var wait_doc = DocumentApp.openById(doc2_key)
-  var f = wait_doc.getText()
-  try {
-    var wait_doc_json = JSON.parse(f);
-  } catch (d) {
-    console.log(f)
-    console.log("doc error!")
-    var Dlen = f.search('}{"');
-    var r = f.substring(0, Dlen + 1)
-    wait_doc.setText(r); //寫入
-    var wait_doc_json = JSON.parse(r);
-  }
-
-  var keys = Object.keys(wait_doc_json)
-  for (var i in keys) {
-    var aims = wait_doc_json[keys[i]]
-    var time_difference = new Date().getTime() - aims['create_time']
-    if (time_difference > 20 * 1000) {
-      var media = []
-      for (var l in aims['f_data']) { // 負責先整理好 media
-        var t8 = {
-          "type": aims['f_data'][l]['type'],
-          "media": aims['f_data'][l]['media'],
-          "caption": aims['f_data'][l]['caption'],
-        }
-        media.push(t8)
-      }
-      media = JSON.stringify(media)
-
-      for (k in aims['to']) { //負責發送
-        var to = aims['to'][k]
-        sendMediaGroup(to, media)
-      }
-
-      deleteTrigger(aims['tgr']) // 清 triggers
-
-      // 收尾清 wait_doc
-      delete wait_doc_json[keys[i]]
-      write_ALL(wait_doc_json, wait_doc) //寫入
-    }
-    continue;
-  }
-}
-//==============================================================================
-function sendMediaGroup(chat_id, media, disable_notification, reply_to_message_id) {
-  if (chat_id === void 0)
-    throw new Error("chat_id未給")
-  if (media === void 0)
-    throw new Error("media未給")
-  //if (typeof media !== 'object')
-  //  throw new Error("media非為正確型態物件")
-  if (disable_notification === void 0)
-    disable_notification = false
-  if (typeof disable_notification !== 'boolean')
-    throw new Error("disable_notification非為正確型態布零值")
-  if (reply_to_message_id === void 0)
-    reply_to_message_id = ''
-  var t = typeof reply_to_message_id
-  if (t != 'number' && t != 'string') {
-    throw new Error("reply_to_message_id非為正確型態數值或字串")
-  }
-  //------------------------------------------
-  var payload = {
-    "method": "sendMediaGroup",
-    'chat_id': String(chat_id),
-    'media': media,
-    'disable_notification': disable_notification,
-    'reply_to_message_id': reply_to_message_id
-  }
-  return start(payload);
-}
 //==============================================================================
 function get_entities_by_type(text, entities, entities_type, return_type) {
   var j = ''
@@ -337,34 +197,6 @@ function get_entities_by_type(text, entities, entities_type, return_type) {
   }
   return j
 }
-//============================================================================
-function Deletes_all_triggers() {
-  // Deletes all triggers in the current project.
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) {
-    ScriptApp.deleteTrigger(triggers[i]);
-  }
-}
-//==============================================================================
-/**
- * Deletes a trigger.
- * @param {string} triggerId The Trigger ID.
- */
-function deleteTrigger(triggerId) {
-  // Loop over all triggers.
-  var allTriggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < allTriggers.length; i++) {
-    // If the current trigger is the correct one, delete it.
-    if (allTriggers[i].getUniqueId() === triggerId) {
-      ScriptApp.deleteTrigger(allTriggers[i]);
-      break;
-    }
-  }
-}
-//==============================================================================
-function get_text(st, ed, t) {
-  return t.substring((t.indexOf(st) + st.length), (t.indexOf(ed)))
-}
 //==============================================================================
 function get_to_chat_id_by_hashtag_result(hashtag_result, chat_id, ALL) {
   var to_chat_id = []
@@ -379,148 +211,33 @@ function get_to_chat_id_by_hashtag_result(hashtag_result, chat_id, ALL) {
   return to_chat_id
 }
 //==============================================================================
-function use_web_tansport(to_chat_id, url_result_A, chat_id, em) {
-  if (A_have(url_result_A)) { //兩個都有才有可能是
-    var emr = em.reply_to_message ? em.reply_to_message.text : ''
-
-    var re_twitter = /^https:\/\/twitter\.com\/\w+\/status\/\d+(\?s=\d+)?$/g
-    var re_plurk = /^https:\/\/www\.plurk\.com\/p\/\w{6,}$/g
-    var re_pixel = /^https:\/\/www\.pixiv\.net\/member_illust\.php\?mode=medium&illust_id=\d+$/g
-
-    if (re_twitter.test(url_result_A)) { // twitter ----------------------
-
-      var response = UrlFetchApp.fetch(url_result_A);
-      var html = response.getContentText()
-      var t = get_text('<link id="async-css-placeholder">', '</head>', html)
-      var re = /image" content="([^<>"]+)"/g
-      var n = t.match(re);
-
-      if (n.length == 0) {
-        sendtext(chat_id, '網址中沒找到圖片', em.message_id)
-        lock.releaseLock();
-        return 0;
-      }
-
-      var wait_photo = []
-      for (var i2 in n) {
-        var InputMedia = {
-          'type': 'photo',
-          'media': get_text('image" content="', '"', n[i2]),
-          'caption': em.caption
-        }
-        wait_photo.push(InputMedia)
-      }
-      wait_photo[0]['caption'] = emr.text ? emr.text : em.text
-      var media = JSON.stringify(wait_photo)
-
-      if (wait_photo.length == 1) {
-        sendPhoto(to_chat_id, wait_photo[0]['media'], false, em.text)
-      } else {
-        sendMediaGroup(to_chat_id, media)
-      }
-
-    } else if (re_plurk.test(url_result_A)) { // plurk ------------------
-
-      var response = UrlFetchApp.fetch(url_result_A);
-      var html = response.getContentText()
-      var t1 = html.slice(html.indexOf('<div class="text_holder">'))
-      var t2 = t1.slice(0, t1.indexOf('</div> </div> <div class="controls clearfix"></div>'))
-      var re = /href=\"([^\"]+)\"/g
-      var n = t2.match(re);
-
-      if (n.length == 0) {
-        sendtext(chat_id, '網址中沒找到圖片', em.message_id)
-        lock.releaseLock();
-        return 0;
-      }
-
-      var wait_photo = []
-      for (var i3 in n) {
-        var InputMedia = {
-          'type': 'photo',
-          'media': get_text('href="', '"', n[i3]),
-          'caption': em.caption
-        }
-        wait_photo.push(InputMedia)
-      }
-      wait_photo[0]['caption'] = emr.text ? emr.text : em.text
-      var media = JSON.stringify(wait_photo)
-
-      if (wait_photo.length == 1) {
-        sendPhoto(to_chat_id, wait_photo[0]['media'], false, em.text)
-      } else {
-        sendMediaGroup(to_chat_id, media)
-      }
-    } else if (re_pixel.test(url_result_A)) {
-      var response = UrlFetchApp.fetch(url_result_A);
-      var html = response.getContentText()
-      var t1 = html.slice(html.indexOf('<meta property="og:image"'))
-      var t2 = t1.slice(0, t1.indexOf('<meta name="application-name"'))
-
-      var re = /\"og:image\"\ content=\"([^\"]+)\"/g
-      var n = t2.match(re);
-
-      if (n.length == 0) {
-        sendtext(chat_id, '網址中沒找到圖片', em.message_id)
-        lock.releaseLock();
-        return 0;
-      }
-
-      var wait_photo = []
-      for (var i3 in n) {
-        var InputMedia = {
-          'type': 'photo',
-          'media': get_text(' content="', '"', n[i3]),
-          'caption': em.caption
-        }
-        wait_photo.push(InputMedia)
-      }
-      wait_photo[0]['caption'] = emr.text ? emr.text : em.text
-      var media = JSON.stringify(wait_photo)
-
-      if (wait_photo.length == 1) {
-        sendPhoto(to_chat_id, wait_photo[0]['media'], false, em.text)
-      } else {
-        sendMediaGroup(to_chat_id, media)
-      }
-    } else {
-      throw new Error("不支援")
-    }
-  }
-
-}
-//==============================================================================
-function A_have(a) {
-  if (a.length == 0) {
-    return false
-  }
-  return true
-}
-//==============================================================================
+//喔乾，感謝 Kevin Tseng 開源這個用法
+//來源:
+// https://kevintsengtw.blogspot.com/2011/09/javascript-stringformat.html?
+// showComment=1536387871696#c7569907085658128584
+//可在Javascript中使用如同C#中的string.format (對jQuery String的擴充方法)
+//使用方式 : var fullName = 'Hello. My name is {0} {1}.'.format('FirstName', 'LastName');
+//
 String.prototype.format = function() {
   var txt = this.toString();
   for (var i = 0; i < arguments.length; i++) {
     var exp = getStringFormatPlaceHolderRegEx(i);
+    arguments[i] = String(arguments[i]).replace(/\$/gm,'♒☯◈∭')
     txt = txt.replace(exp, (arguments[i] == null ? "" : arguments[i]));
+    txt = txt.replace(/♒☯◈∭/gm,'$')
   }
   return cleanStringFormatResult(txt);
 }
-
+//讓輸入的字串可以包含{}
 function getStringFormatPlaceHolderRegEx(placeHolderIndex) {
   return new RegExp('({)?\\{' + placeHolderIndex + '\\}(?!})', 'gm')
 }
-
+//當format格式有多餘的position時，就不會將多餘的position輸出
+//ex:
+// var fullName = 'Hello. My name is {0} {1} {2}.'.format('firstName', 'lastName');
+// 輸出的 fullName 為 'firstName lastName', 而不會是 'firstName lastName {2}'
 function cleanStringFormatResult(txt) {
   if (txt == null) return "";
   return txt.replace(getStringFormatPlaceHolderRegEx("\\d+"), "");
-}
-//==============================================================================
-// 我印象中有找到一種方式來分割字串的，但不知道是哪個指令...
-// 用法是 text.xxxx(10) -> 回傳 [字串前10個字 , 後10個到底的字]
-String.prototype.nslice = function() {
-  var txt = this.toString();
-  var t1 = txt.substr(0, arguments[0])
-  var t2 = txt.slice(arguments[0])
-  return [t1, t2];
 }
 //==============================================================================
