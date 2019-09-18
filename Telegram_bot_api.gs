@@ -1,4 +1,12 @@
 //=================================================================================
+
+/**
+ * getpath - get_tg_file_ture_route
+ *
+ * @param  {(int|String)} id         tg_file_id
+ * @param  {String} Telegram_bot_key bot_token
+ * @return {String}                  tg_file_ture_route
+ */
 function getpath(id, Telegram_bot_key) {
   if (Telegram_bot_key === void 0) {
     var base_json = base()
@@ -11,6 +19,14 @@ function getpath(id, Telegram_bot_key) {
   return path;
 }
 //=================================================================================
+
+/**
+ * TGdownloadURL - get_tg_file_download_url
+ *
+ * @param  {String} path             tg_file_path
+ * @param  {String} Telegram_bot_key bot_token
+ * @return {String}                  tg_file_download_url
+ */
 function TGdownloadURL(path, Telegram_bot_key) {
   if (Telegram_bot_key === void 0) {
     var base_json = base()
@@ -43,6 +59,15 @@ function get_time_txt(timestamp, GMT) {
   return formattedDate;
 }
 //=================================================================================
+
+/**
+ * sendtext - tg_bot_sendMassage
+ *
+ * @param  {(int|String)} chat_id             bot要在哪發話
+ * @param  {(Object|String)} ct                  文字或TG文字描述物件
+ * @param  {(int|String)} reply_to_message_id 回應哪句話
+ * @return {json}                     TG伺服器回應json
+ */
 function sendtext(chat_id, ct, reply_to_message_id) {
   reply_to_message_id === void 0 ? reply_to_message_id : ''
 
@@ -101,8 +126,6 @@ function forwardMessage(chat_id, from_chat_id, disable_notification, message_id)
     'message_id': message_id
   }
   return start(payload);
-
-
 }
 //=================================================================
 function sendPhoto(chat_id, url, notification, caption) {
